@@ -146,6 +146,32 @@ const styles = html`<style>
   button.plain {
     background: var(--card);
   }
+  .sketch-label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-weight: 600;
+  }
+  .sketch-pad {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    margin: 0 0 0.75rem;
+    border: 2px dashed var(--ink);
+    border-radius: 0.6rem;
+    background: #ffffff;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .sketch {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin-top: 0.6rem;
+    border: 1px solid var(--muted);
+    border-radius: 0.5rem;
+    background: #ffffff;
+  }
 </style>`;
 
 const layout = (title: string, content: Html) => html`<!doctype html>
@@ -173,6 +199,13 @@ const questionItem = (question: Question, actions: Html) => html`
     data-votes="${question.votes}"
   >
     <p>${question.text}</p>
+    ${question.sketch
+      ? html`<img
+          class="sketch"
+          src="${question.sketch}"
+          alt="Sketch for this question"
+        />`
+      : ""}
     <div class="actions">${actions}</div>
   </li>
 `;
@@ -204,19 +237,88 @@ const counterScript = html`<script>
   })();
 </script>`;
 
+// The sketch pad: draw with finger, pen or mouse. The hidden field is filled
+// only on submit and only when something was drawn. No `${` and no backslash
+// in here, the template would interpret them.
+const sketchScript = html`<script>
+  (function () {
+    var canvas = document.getElementById("sketch-pad");
+    var field = document.getElementById("sketch");
+    var clear = document.getElementById("sketch-clear");
+    if (!canvas || !field || !canvas.getContext) return;
+    var ctx = canvas.getContext("2d");
+    var drawn = false;
+    var drawing = false;
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#1f2328";
+    function point(event) {
+      var box = canvas.getBoundingClientRect();
+      return {
+        x: ((event.clientX - box.left) * canvas.width) / box.width,
+        y: ((event.clientY - box.top) * canvas.height) / box.height,
+      };
+    }
+    canvas.addEventListener("pointerdown", function (event) {
+      event.preventDefault();
+      drawing = true;
+      drawn = true;
+      if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
+      var p = point(event);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + 0.1, p.y + 0.1);
+      ctx.stroke();
+    });
+    canvas.addEventListener("pointermove", function (event) {
+      if (!drawing) return;
+      event.preventDefault();
+      var p = point(event);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    });
+    function stop() {
+      drawing = false;
+    }
+    canvas.addEventListener("pointerup", stop);
+    canvas.addEventListener("pointercancel", stop);
+    function empty() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawn = false;
+      field.value = "";
+    }
+    if (clear) clear.addEventListener("click", empty);
+    canvas.form.addEventListener("submit", function () {
+      field.value = drawn ? canvas.toDataURL("image/png") : "";
+    });
+    field.value = "";
+  })();
+</script>`;
+
 const askForm = (draft: string, error?: string) => html`
   <form class="ask" method="post" action="/questions">
     <label for="text">Your question</label>
     <textarea id="text" name="text" rows="3" required>${draft}</textarea>
     ${error ? html`<p class="error" role="alert">${error}</p>` : ""}
+    <span class="sketch-label">Sketch (optional)</span>
+    <canvas
+      id="sketch-pad"
+      class="sketch-pad"
+      width="320"
+      height="200"
+      aria-label="Sketch pad, draw with your finger"
+    ></canvas>
+    <input type="hidden" id="sketch" name="sketch" value="" />
     <div class="ask-row">
       <span id="count" class="count" data-max="${MAX_QUESTION_LENGTH}"
         >0 / ${MAX_QUESTION_LENGTH}</span
       >
+      <button type="button" id="sketch-clear" class="plain">Clear sketch</button>
       <button type="submit">Ask</button>
     </div>
   </form>
-  ${counterScript}
+  ${counterScript} ${sketchScript}
 `;
 
 /**

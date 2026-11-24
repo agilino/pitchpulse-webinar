@@ -1,12 +1,16 @@
 /** Matches the CHECK on questions.text in migrations/0001_init.sql. */
 export const MAX_QUESTION_LENGTH = 280;
 
+/** A sketch is a PNG data URL. Anything else is rejected before it is stored. */
+export const SKETCH_PATTERN = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/;
+
 export type Question = {
   id: number;
   text: string;
   created_at: string;
   answered_at: string | null;
   votes: number;
+  sketch: string | null;
 };
 
 /**
@@ -16,7 +20,7 @@ export type Question = {
 export async function listQuestions(db: D1Database): Promise<Question[]> {
   const { results } = await db
     .prepare(
-      `SELECT q.id, q.text, q.created_at, q.answered_at, COUNT(v.voter_id) AS votes
+      `SELECT q.id, q.text, q.created_at, q.answered_at, q.sketch, COUNT(v.voter_id) AS votes
          FROM questions q
          LEFT JOIN votes v ON v.question_id = q.id
         GROUP BY q.id
@@ -26,9 +30,19 @@ export async function listQuestions(db: D1Database): Promise<Question[]> {
   return results;
 }
 
-/** Stores a question. The text must already be valid, see `questionError`. */
-export async function addQuestion(db: D1Database, text: string): Promise<void> {
-  await db.prepare("INSERT INTO questions (text) VALUES (?)").bind(text).run();
+/**
+ * Stores a question, with its sketch if there is one. The text must already be
+ * valid, see `questionError`, and the sketch must match `SKETCH_PATTERN`.
+ */
+export async function addQuestion(
+  db: D1Database,
+  text: string,
+  sketch: string | null = null,
+): Promise<void> {
+  await db
+    .prepare("INSERT INTO questions (text, sketch) VALUES (?, ?)")
+    .bind(text, sketch)
+    .run();
 }
 
 /**

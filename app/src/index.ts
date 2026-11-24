@@ -7,6 +7,7 @@ import {
   listQuestions,
   markAnswered,
   MAX_QUESTION_LENGTH,
+  SKETCH_PATTERN,
   toggleVote,
 } from "./db";
 import { clearRoomPage, moderationPage, pinPage, questionsPage } from "./views";
@@ -82,7 +83,19 @@ app.post("/questions", async (c) => {
       400,
     );
   }
-  await addQuestion(c.env.DB, text);
+  // The sketch is optional: missing or empty means none. On a rejection it is
+  // not sent back, so the pad is empty again.
+  const sketch = typeof body.sketch === "string" && body.sketch !== "" ? body.sketch : null;
+  if (sketch !== null && !SKETCH_PATTERN.test(sketch)) {
+    return c.html(
+      questionsPage(await listQuestions(c.env.DB), {
+        draft: text,
+        error: "The sketch could not be read. Please draw it again.",
+      }),
+      400,
+    );
+  }
+  await addQuestion(c.env.DB, text, sketch);
   return c.redirect("/", 303);
 });
 
