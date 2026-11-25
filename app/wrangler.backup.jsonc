@@ -1,0 +1,17 @@
+// Backup copy of PitchPulse: its own worker and its own D1 database.
+// Use it with --config, for example:
+//   npm exec --prefix app -- wrangler deploy --config app/wrangler.backup.jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pitchpulse-backup",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-20",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pitchpulse-backup",
+      "database_id": "4d639722-527c-4322-b101-27bd28bb0082",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

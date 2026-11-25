@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.env
+*.local
+.DS_Store
+Thumbs.db
+slides/.slidev/
+slides/*.pdf
+slides/*.pptx
+_bmad-output/
+_bmad/scripts/
+_bmad/render/

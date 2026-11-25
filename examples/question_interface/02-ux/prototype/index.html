@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PitchPulse prototype</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --ink: #222;
+    --paper: #fffdf5;
+    --card: #fffefa;
+    --yellow: #f2c94c;
+    --blue: #1f4aa8;
+    --green: #2e7d32;
+    --muted: #9a9a9a;
+    --red: #b3261e;
+    --hand: "Comic Sans MS", "Comic Neue", "Segoe Print", "Bradley Hand", "Chalkboard SE", "Marker Felt", cursive;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--hand);
+    font-size: 17px;
+    line-height: 1.35;
+    -webkit-text-size-adjust: 100%;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; touch-action: manipulation; }
+  [hidden] { display: none !important; }
+
+  /* Phone column: full width on a phone, a drawn phone frame on a desktop */
+  .phone {
+    max-width: 390px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: var(--card);
+    padding: 14px 16px 40px;
+  }
+  @media (min-width: 480px) {
+    body { padding: 28px 16px; }
+    .phone {
+      min-height: 800px;
+      padding: 22px 20px 40px;
+      border: 3px solid var(--ink);
+      border-radius: 48px 42px 46px 44px / 44px 48px 42px 46px;
+      position: relative;
+    }
+    .phone::before {
+      content: "";
+      position: absolute;
+      inset: -5px -3px -4px -6px;
+      border: 1.5px solid var(--ink);
+      border-radius: 44px 50px 42px 48px / 48px 42px 50px 44px;
+      opacity: .45;
+      pointer-events: none;
+    }
+  }
+
+  /* Hand-drawn box: uneven corners plus a faint second stroke */
+  .sk {
+    position: relative;
+    background: var(--card);
+    border: 2.5px solid var(--ink);
+    border-radius: 14px 7px 15px 6px / 7px 15px 6px 14px;
+  }
+  .sk::after {
+    content: "";
+    position: absolute;
+    inset: -3px -2px -2px -3px;
+    border: 1.2px solid var(--ink);
+    border-radius: 9px 16px 7px 15px / 15px 8px 16px 7px;
+    opacity: .35;
+    pointer-events: none;
+    transform: rotate(.4deg);
+  }
+  .hatch {
+    background:
+      repeating-linear-gradient(-55deg, transparent 0 5px, rgba(242, 201, 76, .95) 5px 7px),
+      #fffdf0;
+  }
+  .qr {
+    border: 2.5px solid var(--ink);
+    background:
+      repeating-linear-gradient(45deg, var(--ink) 0 1.4px, transparent 1.4px 6px),
+      repeating-linear-gradient(-45deg, var(--ink) 0 1.4px, transparent 1.4px 6px),
+      #fff;
+  }
+  .note {
+    color: var(--blue);
+    font-size: 15px;
+    transform: rotate(-1.2deg);
+    margin: 6px 0;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 0 0 18px;
+  }
+  .tab {
+    padding: 7px 4px;
+    font-size: 15px;
+    line-height: 1.1;
+  }
+  .tab span { display: block; font-size: 12px; color: #555; }
+  .tab[aria-current="page"] {
+    background:
+      repeating-linear-gradient(-55deg, transparent 0 5px, rgba(242, 201, 76, .95) 5px 7px),
+      #fffdf0;
+    font-weight: bold;
+  }
+
+  h1, h2 { margin: 0; font-weight: bold; }
+  h1 { font-size: 27px; letter-spacing: .5px; }
+  h2 { font-size: 21px; }
+  .sub { color: #555; font-size: 14px; margin: 2px 0 0; }
+  .rule {
+    height: 0;
+    border: 0;
+    border-top: 2.5px solid var(--ink);
+    border-radius: 50%;
+    margin: 18px 2px 16px;
+    transform: rotate(-.3deg);
+  }
+
+  .btn {
+    padding: 8px 20px;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.big { display: block; width: 100%; padding: 13px; font-size: 20px; }
+
+  /* Screen 1: join */
+  .slide {
+    padding: 18px 16px 16px;
+    text-align: center;
+    transform: rotate(-.6deg);
+    margin: 8px 4px 14px;
+  }
+  .slide .qr { width: 176px; height: 176px; margin: 14px auto 10px; }
+  .slide .code { font-size: 15px; color: #444; }
+  .label { font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* Screen 2: ask and vote */
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .head .qr { width: 54px; height: 54px; flex: none; padding: 0; }
+  textarea {
+    display: block;
+    width: 100%;
+    min-height: 92px;
+    resize: vertical;
+    padding: 10px 12px;
+    background: #fff;
+    outline: none;
+  }
+  textarea::placeholder { color: var(--muted); }
+  textarea:focus-visible { box-shadow: 0 0 0 3px rgba(31, 74, 168, .25); }
+  .askrow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .count { font-size: 14px; color: #666; }
+  .count.near { color: var(--red); font-weight: bold; }
+
+  .list { list-style: none; margin: 0; padding: 0; }
+  .item {
+    display: grid;
+    grid-template-columns: 62px 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .vote {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 74px;
+    padding: 6px 0;
+    font-weight: bold;
+  }
+  .vote .tri { font-size: 20px; line-height: 1; }
+  .vote .n { font-size: 22px; line-height: 1; }
+  .item:nth-child(even) .vote { transform: rotate(.7deg); }
+  .item:nth-child(odd) .text { transform: rotate(-.25deg); }
+  .text { padding: 10px 12px; min-height: 74px; }
+  .text p { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .meta { display: block; margin-top: 4px; font-size: 13px; color: #777; }
+
+  .item.answered .sk { border-style: dashed; border-color: var(--muted); color: var(--muted); background: transparent; }
+  .item.answered .sk::after { display: none; }
+  .item.answered .text p { text-decoration: line-through; }
+  .item.answered .text { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+  .check { color: var(--green); font-size: 32px; font-weight: bold; line-height: 1; }
+  .vote:disabled { cursor: default; }
+
+  .item.fresh .text { animation: fresh 2.2s ease-out; }
+  @keyframes fresh {
+    0%, 40% { box-shadow: 0 0 0 5px rgba(242, 201, 76, .9); }
+    100% { box-shadow: 0 0 0 0 rgba(242, 201, 76, 0); }
+  }
+
+  /* Screen 3: host */
+  .pin { display: flex; gap: 10px; margin-top: 12px; }
+  .pin input {
+    width: 120px;
+    padding: 8px 12px;
+    font-size: 22px;
+    letter-spacing: 6px;
+    background: #fff;
+    outline: none;
+  }
+  .err { color: var(--red); font-size: 15px; min-height: 1.4em; margin: 8px 0 0; }
+  .stats { font-size: 15px; color: #444; margin: 2px 0 14px; }
+  .host .vote { cursor: default; }
+  .host .text { display: flex; flex-direction: column; gap: 8px; }
+  .done { align-self: flex-end; padding: 5px 12px; font-size: 15px; }
+  .rank { font-size: 12px; color: #666; font-weight: normal; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 22px;
+    transform: translateX(-50%) rotate(-1deg);
+    max-width: 340px;
+    padding: 8px 16px;
+    color: var(--blue);
+    font-size: 16px;
+    text-align: center;
+    z-index: 10;
+  }
+
+  :focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) {
+    .item.fresh .text { animation: none; box-shadow: 0 0 0 4px rgba(242, 201, 76, .9); }
+  }
+</style>
+</head>
+<body>
+<main class="phone">
+
+  <nav class="tabs" aria-label="Prototype screens">
+    <button class="tab sk" data-go="join">1 · Join<span>via QR</span></button>
+    <button class="tab sk" data-go="ask">2 · Ask<span>&amp; vote</span></button>
+    <button class="tab sk" data-go="host">3 · Host<span>with PIN</span></button>
+  </nav>
+
+  <!-- Screen 1: join via QR -->
+  <section id="screen-join" data-screen="join" aria-labelledby="join-title">
+    <p class="label">On the speaker's slide</p>
+    <div class="slide sk">
+      <h2 id="join-title">Questions? Ask &amp; vote here</h2>
+      <div class="qr" role="img" aria-label="QR code"></div>
+      <div class="code">From idea to live app · room IDEA-42</div>
+    </div>
+    <p class="note">phone camera → QR → straight into the Q&amp;A.<br>no app, no login, no name.</p>
+    <p style="margin: 18px 0 10px;">Point your phone camera at the code. That's it.</p>
+    <button class="btn big sk hatch" data-go="ask">I scanned it, let me in</button>
+    <p class="note" style="text-align:right">(simulates the scan)</p>
+  </section>
+
+  <!-- Screen 2: ask and vote -->
+  <section id="screen-ask" data-screen="ask" aria-labelledby="ask-title" hidden>
+    <div class="head">
+      <div>
+        <h1 id="ask-title">Ask the speaker</h1>
+        <p class="sub">From idea to live app · you are anonymous</p>
+      </div>
+      <button class="qr" data-go="join" aria-label="Back to the QR code"></button>
+    </div>
+
+    <form id="ask-form" style="margin-top: 16px;" novalidate>
+      <label for="q" class="label">Your question</label>
+      <textarea id="q" class="sk" maxlength="280" placeholder="your question ..." rows="3"></textarea>
+      <div class="askrow">
+        <span id="count" class="count" aria-live="polite">0 / 280</span>
+        <button id="ask-btn" class="btn sk hatch" type="submit" disabled>ASK</button>
+      </div>
+    </form>
+
+    <hr class="rule">
+    <p class="note">tap ▲ = my vote · tap again = undo</p>
+    <ol id="ask-list" class="list" aria-label="Questions, most votes first"></ol>
+  </section>
+
+  <!-- Screen 3: host view -->
+  <section id="screen-host" data-screen="host" aria-labelledby="host-title" hidden>
+    <h1 id="host-title">Host view</h1>
+    <p class="sub">only for the speaker</p>
+
+    <form id="pin-form" novalidate>
+      <hr class="rule">
+      <label for="pin" class="label">Moderation PIN</label>
+      <div class="pin">
+        <input id="pin" class="sk" type="password" inputmode="numeric" autocomplete="off" maxlength="8" aria-describedby="pin-err pin-hint">
+        <button class="btn sk hatch" type="submit">Unlock</button>
+      </div>
+      <p id="pin-err" class="err" aria-live="polite"></p>
+      <p id="pin-hint" class="note">prototype PIN: 1234</p>
+    </form>
+
+    <div id="host-panel" hidden>
+      <hr class="rule">
+      <p id="stats" class="stats"></p>
+      <p class="note">answer the top one, then tick it off.</p>
+      <ol id="host-list" class="list host" aria-label="Questions for the host"></ol>
+    </div>
+  </section>
+
+  <div id="toast" class="toast sk" role="status" hidden></div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var MAX_LEN = 280;
+  var HOST_PIN = '1234';
+  var MIN = 60 * 1000;
+  var now = Date.now();
+
+  // Local state only. Nothing is stored or sent.
+  // createdAt decides ties: the older question comes first.
+  var questions = [
+    { id: 1, text: 'How do you keep spec and code in sync?', votes: 12, mine: false, answered: false, createdAt: now - 21 * MIN },
+    { id: 2, text: 'Can we get the prompts afterwards?', votes: 6, mine: false, answered: false, createdAt: now - 14 * MIN },
+    { id: 3, text: 'Which model plans, which one builds?', votes: 7, mine: false, answered: false, createdAt: now - 9 * MIN }
+  ];
+  var nextId = 4;
+  var hostUnlocked = false;
+  var freshId = null;
+
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Open before answered, then most votes, then older first. Total order, so the sort is stable.
+  function sorted() {
+    return questions.slice().sort(function (a, b) {
+      if (a.answered !== b.answered) return a.answered ? 1 : -1;
+      if (a.votes !== b.votes) return b.votes - a.votes;
+      if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+      return a.id - b.id;
+    });
+  }
+
+  function ago(ts) {
+    var m = Math.round((Date.now() - ts) / MIN);
+    if (m < 1) return 'just now';
+    return 'asked ' + m + ' min ago';
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function byId(id) {
+    for (var i = 0; i < questions.length; i++) if (questions[i].id === id) return questions[i];
+    return null;
+  }
+
+  // ---------- rendering ----------
+
+  function attendeeItem(q) {
+    var li = el('li', 'item' + (q.answered ? ' answered' : '') + (q.id === freshId ? ' fresh' : ''));
+    li.dataset.id = q.id;
+
+    var vote = el('button', 'vote sk' + (q.mine && !q.answered ? ' hatch' : ''));
+    vote.type = 'button';
+    vote.dataset.vote = q.id;
+    vote.setAttribute('aria-pressed', q.mine ? 'true' : 'false');
+    vote.setAttribute('aria-label', (q.answered ? 'Answered, ' : (q.mine ? 'Take back my vote, ' : 'Vote, ')) + q.votes + ' votes');
+    if (q.answered) vote.disabled = true;
+    vote.appendChild(el('span', 'tri', '▲'));
+    vote.appendChild(el('span', 'n', String(q.votes)));
+
+    var box = el('div', 'text sk');
+    var p = el('p', '', q.text);
+    var meta = el('span', 'meta', q.answered ? 'answered' : ago(q.createdAt) + (q.mine ? ' · your vote' : ''));
+    var wrap = el('div');
+    wrap.appendChild(p);
+    wrap.appendChild(meta);
+    box.appendChild(wrap);
+    if (q.answered) box.appendChild(el('span', 'check', '✓'));
+
+    li.appendChild(vote);
+    li.appendChild(box);
+    return li;
+  }
+
+  function hostItem(q, rank) {
+    var li = el('li', 'item' + (q.answered ? ' answered' : '') + (q.id === freshId ? ' fresh' : ''));
+    li.dataset.id = q.id;
+
+    var vote = el('div', 'vote sk');
+    vote.setAttribute('aria-label', q.votes + ' votes');
+    vote.appendChild(el('span', 'tri', '▲'));
+    vote.appendChild(el('span', 'n', String(q.votes)));
+
+    var box = el('div', 'text sk');
+    var wrap = el('div');
+    wrap.appendChild(el('p', '', q.text));
+    wrap.appendChild(el('span', 'meta', q.answered ? 'answered' : '#' + rank + ' · ' + ago(q.createdAt)));
+    box.appendChild(wrap);
+    if (q.answered) {
+      box.appendChild(el('span', 'check', '✓'));
+    } else {
+      var done = el('button', 'done sk', '✓ Answered');
+      done.type = 'button';
+      done.dataset.answer = q.id;
+      done.setAttribute('aria-label', 'Mark as answered: ' + q.text);
+      box.appendChild(done);
+    }
+
+    li.appendChild(vote);
+    li.appendChild(box);
+    return li;
+  }
+
+  // Re-render a list and slide moved cards to their new place (FLIP).
+  function renderList(list, makeItem) {
+    var before = {};
+    var old = list.querySelectorAll('[data-id]');
+    for (var i = 0; i < old.length; i++) before[old[i].dataset.id] = old[i].getBoundingClientRect().top;
+
+    list.textContent = '';
+    var rank = 0;
+    sorted().forEach(function (q) {
+      if (!q.answered) rank++;
+      list.appendChild(makeItem(q, rank));
+    });
+
+    if (reduceMotion) return;
+    var items = list.querySelectorAll('[data-id]');
+    for (var j = 0; j < items.length; j++) {
+      var item = items[j];
+      var top0 = before[item.dataset.id];
+      if (top0 === undefined) continue;
+      var dy = top0 - item.getBoundingClientRect().top;
+      if (!dy) continue;
+      item.style.transition = 'none';
+      item.style.transform = 'translateY(' + dy + 'px)';
+      slideHome(item);
+    }
+  }
+
+  function slideHome(item) {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        item.style.transition = 'transform .4s ease';
+        item.style.transform = '';
+      });
+    });
+  }
+
+  function render() {
+    var focused = document.activeElement;
+    var focusVote = focused && focused.dataset ? focused.dataset.vote : undefined;
+
+    renderList(document.getElementById('ask-list'), attendeeItem);
+    renderList(document.getElementById('host-list'), hostItem);
+
+    var open = 0, answered = 0;
+    questions.forEach(function (q) { if (q.answered) answered++; else open++; });
+    document.getElementById('stats').textContent = open + ' open · ' + answered + ' answered · sorted by votes';
+
+    // Keep keyboard focus on the vote button that was just pressed.
+    if (focusVote !== undefined) {
+      var again = document.querySelector('#ask-list [data-vote="' + focusVote + '"]');
+      if (again && !again.disabled) again.focus();
+    }
+  }
+
+  // ---------- screens ----------
+
+  function show(name) {
+    var screens = document.querySelectorAll('[data-screen]');
+    for (var i = 0; i < screens.length; i++) screens[i].hidden = screens[i].dataset.screen !== name;
+    var tabs = document.querySelectorAll('.tab');
+    for (var j = 0; j < tabs.length; j++) {
+      if (tabs[j].dataset.go === name) tabs[j].setAttribute('aria-current', 'page');
+      else tabs[j].removeAttribute('aria-current');
+    }
+    window.scrollTo(0, 0);
+    if (name === 'host' && !hostUnlocked) document.getElementById('pin').focus();
+  }
+
+  document.addEventListener('click', function (e) {
+    var go = e.target.closest('[data-go]');
+    if (go) show(go.dataset.go);
+  });
+
+  // ---------- toast ----------
+
+  var toastTimer = null;
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, 2400);
+  }
+
+  // ---------- ask ----------
+
+  var input = document.getElementById('q');
+  var askBtn = document.getElementById('ask-btn');
+  var count = document.getElementById('count');
+
+  function updateCount() {
+    var len = input.value.length;
+    count.textContent = len + ' / ' + MAX_LEN;
+    count.classList.toggle('near', len > MAX_LEN - 20);
+    askBtn.disabled = input.value.trim().length === 0 || len > MAX_LEN;
+  }
+  input.addEventListener('input', updateCount);
+
+  document.getElementById('ask-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var text = input.value.trim();
+    if (!text || text.length > MAX_LEN) return;
+    var q = { id: nextId++, text: text, votes: 0, mine: false, answered: false, createdAt: Date.now() };
+    questions.push(q);
+    freshId = q.id;
+    input.value = '';
+    updateCount();
+    render();
+    freshId = null;
+    var card = document.querySelector('#ask-list [data-id="' + q.id + '"]');
+    if (card) card.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+    toast('Asked. Others can vote on it now.');
+  });
+
+  // ---------- vote ----------
+
+  document.getElementById('ask-list').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-vote]');
+    if (!btn || btn.disabled) return;
+    var q = byId(Number(btn.dataset.vote));
+    if (!q || q.answered) return;
+    if (q.mine) { q.mine = false; q.votes -= 1; }
+    else { q.mine = true; q.votes += 1; }
+    render();
+  });
+
+  // ---------- host ----------
+
+  document.getElementById('pin-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var pin = document.getElementById('pin');
+    var err = document.getElementById('pin-err');
+    if (pin.value.trim() === HOST_PIN) {
+      hostUnlocked = true;
+      err.textContent = '';
+      pin.value = '';
+      document.getElementById('pin-form').hidden = true;
+      document.getElementById('host-panel').hidden = false;
+      render();
+    } else {
+      err.textContent = 'Wrong PIN. Try again.';
+      pin.select();
+    }
+  });
+
+  document.getElementById('host-list').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-answer]');
+    if (!btn) return;
+    var q = byId(Number(btn.dataset.answer));
+    if (!q || q.answered) return;
+    q.answered = true;
+    render();
+    toast('Ticked off. It moved to the bottom for everyone.');
+  });
+
+  // ---------- start ----------
+  updateCount();
+  render();
+  show('join');
+})();
+</script>
+</body>
+</html>

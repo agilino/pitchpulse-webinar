@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pitchpulse",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-20",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pitchpulse",
+      "database_id": "340ad64e-33d3-47a0-9095-40fb85512a15",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
